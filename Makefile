@@ -1,4 +1,4 @@
-.PHONY: build run-scatter run-multi-scatter run-bar run-stacked-bar run-horizontal-bar run-box run-custom-box run-box-statistical run-box-horizontal run-histogram clean init
+.PHONY: build run-scatter run-multi-scatter run-bar run-stacked-bar run-horizontal-bar run-box run-custom-box run-box-statistical run-box-horizontal run-histogram run-ohlc clean init
 
 build:
 	mkdir -p bin
@@ -42,6 +42,9 @@ run-box-horizontal: build
 
 run-histogram: build
 	./bin/histogram
+
+run-ohlc:
+	go run cmd/examples/ohlc/main.go
 
 clean:
 	rm -rf bin/
