@@ -160,31 +160,24 @@ func (o *OHLC) Validate() error {
 
 	// Validate price relationships for each data point
 	for i := 0; i < length; i++ {
+		open := opens[i]
 		high := highs[i]
 		low := lows[i]
-		open := opens[i]
 		close := closes[i]
 
+		// Check if open is between low and high
+		if open > high || open < low {
+			return fmt.Errorf("Data Point %d: open (%.2f) must be between low (%.2f) and high (%.2f)", i, open, low, high)
+		}
+		// Check if close is between low and high
+		if close > high || close < low {
+			return fmt.Errorf("Data Point %d: close (%.2f) must be between low (%.2f) and high (%.2f)", i, close, low, high)
+		}
+		// Check if low is not greater than high
 		if low > high {
-			return &validation.ValidationError{
-				Field:   fmt.Sprintf("Data Point %d", i),
-				Message: fmt.Sprintf("low (%.2f) cannot be greater than high (%.2f)", low, high),
-			}
+			return fmt.Errorf("Data Point %d: low (%.2f) cannot be greater than high (%.2f)", i, low, high)
 		}
 
-		if open < low || open > high {
-			return &validation.ValidationError{
-				Field:   fmt.Sprintf("Data Point %d", i),
-				Message: fmt.Sprintf("open (%.2f) must be between low (%.2f) and high (%.2f)", open, low, high),
-			}
-		}
-
-		if close < low || close > high {
-			return &validation.ValidationError{
-				Field:   fmt.Sprintf("Data Point %d", i),
-				Message: fmt.Sprintf("close (%.2f) must be between low (%.2f) and high (%.2f)", close, low, high),
-			}
-		}
 	}
 
 	// Validate line properties
