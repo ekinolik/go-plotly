@@ -47,12 +47,6 @@ type ScatterMarker struct {
 	Line   *MarkerLine `json:"line,omitempty"`
 }
 
-// MarkerLine represents marker line properties
-type MarkerLine struct {
-	Color interface{} `json:"color,omitempty"` // string or array
-	Width interface{} `json:"width,omitempty"` // number or array
-}
-
 // NewScatter creates a new scatter trace
 func NewScatter() *Scatter {
 	return &Scatter{

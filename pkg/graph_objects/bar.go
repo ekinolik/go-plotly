@@ -44,13 +44,6 @@ type Pattern struct {
 	Solidity interface{} `json:"solidity,omitempty"`
 }
 
-// ColorBar represents colorbar properties
-type ColorBar struct {
-	Title     interface{} `json:"title,omitempty"`
-	Thickness float64     `json:"thickness,omitempty"`
-	ShowScale bool        `json:"showscale,omitempty"`
-}
-
 // NewBar creates a new bar trace
 func NewBar() *Bar {
 	return &Bar{

@@ -10,12 +10,12 @@ import (
 // OHLC represents an OHLC (Open-High-Low-Close) trace
 type OHLC struct {
 	BaseTrace
-	// Data
-	X     interface{} `json:"x,omitempty"`     // array of dates/categories
-	Open  interface{} `json:"open,omitempty"`  // array of open values
-	High  interface{} `json:"high,omitempty"`  // array of high values
-	Low   interface{} `json:"low,omitempty"`   // array of low values
-	Close interface{} `json:"close,omitempty"` // array of close values
+	// Data (required fields)
+	X     interface{} `json:"x"`     // array of dates/categories
+	Open  interface{} `json:"open"`  // array of open values
+	High  interface{} `json:"high"`  // array of high values
+	Low   interface{} `json:"low"`   // array of low values
+	Close interface{} `json:"close"` // array of close values
 
 	// Line Properties
 	Line *OHLCLine `json:"line,omitempty"`
@@ -32,14 +32,43 @@ type OHLC struct {
 	HoverTemplate string      `json:"hovertemplate,omitempty"`
 
 	// Layout Properties
-	XAxis       string  `json:"xaxis,omitempty"`
-	YAxis       string  `json:"yaxis,omitempty"`
-	ShowLegend  *bool   `json:"showlegend,omitempty"`
-	LegendGroup string  `json:"legendgroup,omitempty"`
-	LegendRank  int     `json:"legendrank,omitempty"`
-	Name        string  `json:"name,omitempty"`
-	Opacity     float64 `json:"opacity,omitempty"`
-	TickWidth   float64 `json:"tickwidth,omitempty"`
+	XAxis          string      `json:"xaxis,omitempty"`
+	YAxis          string      `json:"yaxis,omitempty"`
+	ShowLegend     *bool       `json:"showlegend,omitempty"`
+	LegendGroup    string      `json:"legendgroup,omitempty"`
+	LegendRank     int         `json:"legendrank,omitempty"`
+	LegendWidth    float64     `json:"legendwidth,omitempty"`
+	LegendTitle    string      `json:"legendtitle,omitempty"`
+	Name           string      `json:"name,omitempty"`
+	Opacity        float64     `json:"opacity,omitempty"`
+	TickWidth      float64     `json:"tickwidth,omitempty"`
+	Visible        interface{} `json:"visible,omitempty"` // true/false/"legendonly"
+	XPeriod        interface{} `json:"xperiod,omitempty"`
+	XPeriodAlign   string      `json:"xperiodalignment,omitempty"`
+	XPeriod0       interface{} `json:"xperiod0,omitempty"`
+	YPeriod        interface{} `json:"yperiod,omitempty"`
+	YPeriodAlign   string      `json:"yperiodalignment,omitempty"`
+	YPeriod0       interface{} `json:"yperiod0,omitempty"`
+	XCalendar      string      `json:"xcalendar,omitempty"`
+	YCalendar      string      `json:"ycalendar,omitempty"`
+	XHoverFormat   string      `json:"xhoverformat,omitempty"`
+	YHoverFormat   string      `json:"yhoverformat,omitempty"`
+	UIRevision     interface{} `json:"uirevision,omitempty"`
+	SelectedPoints interface{} `json:"selectedpoints,omitempty"`
+	Selected       *Selection  `json:"selected,omitempty"`
+	Unselected     *Selection  `json:"unselected,omitempty"`
+	HoverOn        string      `json:"hoveron,omitempty"`
+	XAxis2         string      `json:"xaxis2,omitempty"`
+	YAxis2         string      `json:"yaxis2,omitempty"`
+	XSrc           string      `json:"xsrc,omitempty"`
+	OpenSrc        string      `json:"opensrc,omitempty"`
+	HighSrc        string      `json:"highsrc,omitempty"`
+	LowSrc         string      `json:"lowsrc,omitempty"`
+	CloseSrc       string      `json:"closesrc,omitempty"`
+	TextSrc        string      `json:"textsrc,omitempty"`
+	HoverTextSrc   string      `json:"hovertextsrc,omitempty"`
+	MetaSrc        string      `json:"metasrc,omitempty"`
+	CustomDataSrc  string      `json:"customdatasrc,omitempty"`
 
 	// Advanced Properties
 	CustomData interface{} `json:"customdata,omitempty"`
@@ -60,6 +89,13 @@ type OHLCDirection struct {
 	Line  *OHLCLine `json:"line,omitempty"`
 	Color string    `json:"color,omitempty"`
 }
+
+// Constants for OHLC properties
+const (
+	// OHLC-specific hover modes
+	OHLCHoverOnPoints = "points"
+	OHLCHoverOnFills  = "fills"
+)
 
 // NewOHLC creates a new OHLC trace
 func NewOHLC() *OHLC {
@@ -131,12 +167,12 @@ func (o *OHLC) validateLine(line *OHLCLine, field string) error {
 	}
 
 	validDash := map[string]bool{
-		"solid":       true,
-		"dot":         true,
-		"dash":        true,
-		"longdash":    true,
-		"dashdot":     true,
-		"longdashdot": true,
+		DashSolid:       true,
+		DashDot:         true,
+		DashDash:        true,
+		DashLongDash:    true,
+		DashDashDot:     true,
+		DashLongDashDot: true,
 	}
 	if line.Dash != "" && !validDash[line.Dash] {
 		return &validation.ValidationError{
@@ -159,25 +195,99 @@ func (o *OHLC) validateDirection(dir *OHLCDirection, field string) error {
 
 // MarshalJSON implements the json.Marshaler interface
 func (o *OHLC) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		Type       string      `json:"type"`
-		X          interface{} `json:"x"` // Make these required, not omitempty
-		Open       interface{} `json:"open"`
-		High       interface{} `json:"high"`
-		Low        interface{} `json:"low"`
-		Close      interface{} `json:"close"`
-		Name       string      `json:"name,omitempty"`
-		Increasing interface{} `json:"increasing,omitempty"`
-		Decreasing interface{} `json:"decreasing,omitempty"`
-	}{
-		Type:       "ohlc",
-		X:          o.X,
-		Open:       o.Open,
-		High:       o.High,
-		Low:        o.Low,
-		Close:      o.Close,
-		Name:       o.Name,
-		Increasing: o.Increasing,
-		Decreasing: o.Decreasing,
-	})
+	m := make(map[string]interface{})
+
+	// Add base trace fields
+	baseData, err := json.Marshal(o.BaseTrace)
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(baseData, &m); err != nil {
+		return nil, err
+	}
+
+	// Always include type and required data fields
+	m["type"] = "ohlc"
+	m["x"] = o.X
+	m["open"] = o.Open
+	m["high"] = o.High
+	m["low"] = o.Low
+	m["close"] = o.Close
+
+	// Add optional fields if present
+	addIfNotEmpty := func(key string, value interface{}) {
+		if value != nil {
+			m[key] = value
+		}
+	}
+
+	// Line Properties
+	addIfNotEmpty("line", o.Line)
+
+	// Increasing/Decreasing Properties
+	addIfNotEmpty("increasing", o.Increasing)
+	addIfNotEmpty("decreasing", o.Decreasing)
+
+	// Text and Hover Properties
+	addIfNotEmpty("text", o.Text)
+	addIfNotEmpty("hovertext", o.HoverText)
+	addIfNotEmpty("hoverinfo", o.HoverInfo)
+	addIfNotEmpty("hoverlabel", o.HoverLabel)
+	addIfNotEmpty("hovertemplate", o.HoverTemplate)
+
+	// Layout Properties
+	addIfNotEmpty("xaxis", o.XAxis)
+	addIfNotEmpty("yaxis", o.YAxis)
+	addIfNotEmpty("showlegend", o.ShowLegend)
+	addIfNotEmpty("legendgroup", o.LegendGroup)
+	if o.LegendRank != 0 {
+		m["legendrank"] = o.LegendRank
+	}
+	addIfNotEmpty("legendwidth", o.LegendWidth)
+	addIfNotEmpty("legendtitle", o.LegendTitle)
+	addIfNotEmpty("name", o.Name)
+	if o.Opacity != 0 {
+		m["opacity"] = o.Opacity
+	}
+	if o.TickWidth != 0 {
+		m["tickwidth"] = o.TickWidth
+	}
+	addIfNotEmpty("visible", o.Visible)
+	addIfNotEmpty("xperiod", o.XPeriod)
+	addIfNotEmpty("xperiodalignment", o.XPeriodAlign)
+	addIfNotEmpty("xperiod0", o.XPeriod0)
+	addIfNotEmpty("yperiod", o.YPeriod)
+	addIfNotEmpty("yperiodalignment", o.YPeriodAlign)
+	addIfNotEmpty("yperiod0", o.YPeriod0)
+	addIfNotEmpty("xcalendar", o.XCalendar)
+	addIfNotEmpty("ycalendar", o.YCalendar)
+	addIfNotEmpty("xhoverformat", o.XHoverFormat)
+	addIfNotEmpty("yhoverformat", o.YHoverFormat)
+	addIfNotEmpty("uirevision", o.UIRevision)
+	addIfNotEmpty("selectedpoints", o.SelectedPoints)
+	addIfNotEmpty("selected", o.Selected)
+	addIfNotEmpty("unselected", o.Unselected)
+	addIfNotEmpty("hoveron", o.HoverOn)
+	addIfNotEmpty("xaxis2", o.XAxis2)
+	addIfNotEmpty("yaxis2", o.YAxis2)
+
+	// Source Properties
+	addIfNotEmpty("xsrc", o.XSrc)
+	addIfNotEmpty("opensrc", o.OpenSrc)
+	addIfNotEmpty("highsrc", o.HighSrc)
+	addIfNotEmpty("lowsrc", o.LowSrc)
+	addIfNotEmpty("closesrc", o.CloseSrc)
+	addIfNotEmpty("textsrc", o.TextSrc)
+	addIfNotEmpty("hovertextsrc", o.HoverTextSrc)
+	addIfNotEmpty("metasrc", o.MetaSrc)
+	addIfNotEmpty("customdatasrc", o.CustomDataSrc)
+
+	// Advanced Properties
+	addIfNotEmpty("customdata", o.CustomData)
+	addIfNotEmpty("meta", o.Meta)
+	addIfNotEmpty("stream", o.Stream)
+	addIfNotEmpty("transforms", o.Transforms)
+	addIfNotEmpty("ids", o.IDs)
+
+	return json.Marshal(m)
 }

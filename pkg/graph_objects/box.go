@@ -175,21 +175,6 @@ type Box struct {
 	Transforms interface{} `json:"transforms,omitempty"`
 }
 
-// Add new types for enhanced styling
-type HoverLabel struct {
-	BgColor     interface{} `json:"bgcolor,omitempty"`
-	BorderColor interface{} `json:"bordercolor,omitempty"`
-	Font        *Font       `json:"font,omitempty"`
-	Align       string      `json:"align,omitempty"`
-	NameLength  int         `json:"namelength,omitempty"`
-}
-
-type Font struct {
-	Family interface{} `json:"family,omitempty"`
-	Size   interface{} `json:"size,omitempty"`
-	Color  interface{} `json:"color,omitempty"`
-}
-
 // BoxMarker represents marker properties for box plots
 type BoxMarker struct {
 	Color        interface{} `json:"color,omitempty"`
@@ -239,11 +224,6 @@ type MeanLine struct {
 	Color     interface{} `json:"color,omitempty"`
 	Width     float64     `json:"width,omitempty"`
 	DashStyle string      `json:"dash,omitempty"`
-}
-
-// Selection represents selection properties for box plots
-type Selection struct {
-	Marker *BoxMarker `json:"marker,omitempty"`
 }
 
 // NewBox creates a new box plot trace
@@ -709,9 +689,9 @@ func (b *Box) validateHoverLabel() error {
 }
 
 func (b *Box) validateFont(f *Font, fieldPrefix string) error {
-	if f.Size != nil {
-		size, ok := f.Size.(float64)
-		if ok && size <= 0 {
+	if f != nil {
+		size := f.Size
+		if size <= 0 {
 			return &validation.ValidationError{
 				Field:   fieldPrefix + ".Size",
 				Message: "font size must be positive",
