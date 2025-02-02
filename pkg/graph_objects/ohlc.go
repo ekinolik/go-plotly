@@ -120,6 +120,73 @@ func (o *OHLC) Validate() error {
 		}
 	}
 
+	// Validate that all data arrays have the same length
+	opens, ok := o.Open.([]float64)
+	if !ok {
+		return &validation.ValidationError{
+			Field:   "Open",
+			Message: "open values must be []float64",
+		}
+	}
+	highs, ok := o.High.([]float64)
+	if !ok {
+		return &validation.ValidationError{
+			Field:   "High",
+			Message: "high values must be []float64",
+		}
+	}
+	lows, ok := o.Low.([]float64)
+	if !ok {
+		return &validation.ValidationError{
+			Field:   "Low",
+			Message: "low values must be []float64",
+		}
+	}
+	closes, ok := o.Close.([]float64)
+	if !ok {
+		return &validation.ValidationError{
+			Field:   "Close",
+			Message: "close values must be []float64",
+		}
+	}
+
+	length := len(opens)
+	if len(highs) != length || len(lows) != length || len(closes) != length {
+		return &validation.ValidationError{
+			Field:   "Data Arrays",
+			Message: "all OHLC arrays must have the same length",
+		}
+	}
+
+	// Validate price relationships for each data point
+	for i := 0; i < length; i++ {
+		high := highs[i]
+		low := lows[i]
+		open := opens[i]
+		close := closes[i]
+
+		if low > high {
+			return &validation.ValidationError{
+				Field:   fmt.Sprintf("Data Point %d", i),
+				Message: fmt.Sprintf("low (%.2f) cannot be greater than high (%.2f)", low, high),
+			}
+		}
+
+		if open < low || open > high {
+			return &validation.ValidationError{
+				Field:   fmt.Sprintf("Data Point %d", i),
+				Message: fmt.Sprintf("open (%.2f) must be between low (%.2f) and high (%.2f)", open, low, high),
+			}
+		}
+
+		if close < low || close > high {
+			return &validation.ValidationError{
+				Field:   fmt.Sprintf("Data Point %d", i),
+				Message: fmt.Sprintf("close (%.2f) must be between low (%.2f) and high (%.2f)", close, low, high),
+			}
+		}
+	}
+
 	// Validate line properties
 	if o.Line != nil {
 		if err := o.validateLine(o.Line, "Line"); err != nil {
