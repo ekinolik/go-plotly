@@ -37,7 +37,16 @@ const (
 	NormalizationProbDensity HistogramNormalization = "probability density"
 )
 
-// Histogram represents a histogram trace
+// HistogramHoverOn represents what to show on hover
+type HistogramHoverOn string
+
+const (
+	HistogramHoverOnBins HistogramHoverOn = "bins"
+	HistogramHoverOnAll  HistogramHoverOn = "all"
+	HistogramHoverOnNone HistogramHoverOn = "none"
+)
+
+// Histogram represents a histogram trace with all available options
 type Histogram struct {
 	BaseTrace
 	// Data
@@ -71,6 +80,7 @@ type Histogram struct {
 	HoverInfo     string      `json:"hoverinfo,omitempty"`
 	HoverLabel    *HoverLabel `json:"hoverlabel,omitempty"`
 	HoverTemplate string      `json:"hovertemplate,omitempty"`
+	HoverOn       string      `json:"hoveron,omitempty"`
 
 	// Layout Properties
 	XAxis          string `json:"xaxis,omitempty"`
@@ -78,12 +88,26 @@ type Histogram struct {
 	AlignmentGroup string `json:"alignmentgroup,omitempty"`
 	OffsetGroup    string `json:"offsetgroup,omitempty"`
 	ShowLegend     *bool  `json:"showlegend,omitempty"`
+	LegendGroup    string `json:"legendgroup,omitempty"`
+	LegendRank     int    `json:"legendrank,omitempty"`
 
 	// Advanced Properties
 	CustomData interface{} `json:"customdata,omitempty"`
 	Meta       interface{} `json:"meta,omitempty"`
 	Stream     interface{} `json:"stream,omitempty"`
 	Transforms interface{} `json:"transforms,omitempty"`
+	IDs        interface{} `json:"ids,omitempty"`
+
+	// Error Bar Properties
+	ErrorX *ErrorBars `json:"error_x,omitempty"`
+	ErrorY *ErrorBars `json:"error_y,omitempty"`
+
+	// Calendar Properties
+	XCalendar string `json:"xcalendar,omitempty"`
+	YCalendar string `json:"ycalendar,omitempty"`
+
+	// Pattern Properties
+	Pattern *HistogramPattern `json:"pattern,omitempty"`
 }
 
 // Bins represents binning properties for histogram
@@ -98,23 +122,52 @@ type Cumulative struct {
 	Enabled    bool   `json:"enabled,omitempty"`
 	Direction  string `json:"direction,omitempty"`
 	CurrentBin string `json:"currentbin,omitempty"`
-	Increasing *bool  `json:"increasing,omitempty"`
 }
 
 // HistMarker represents marker properties for histogram
 type HistMarker struct {
-	Color    interface{} `json:"color,omitempty"`
-	Opacity  float64     `json:"opacity,omitempty"`
-	Pattern  *Pattern    `json:"pattern,omitempty"`
-	Line     *MarkerLine `json:"line,omitempty"`
-	ColorBar *ColorBar   `json:"colorbar,omitempty"`
+	Color     interface{}       `json:"color,omitempty"`
+	Opacity   float64           `json:"opacity,omitempty"`
+	Pattern   *HistogramPattern `json:"pattern,omitempty"`
+	Line      *MarkerLine       `json:"line,omitempty"`
+	ColorBar  *ColorBar         `json:"colorbar,omitempty"`
+	MaxPoints int               `json:"maxpoints,omitempty"`
 }
 
 // HistLine represents line properties for histogram
 type HistLine struct {
-	Color interface{} `json:"color,omitempty"`
-	Width float64     `json:"width,omitempty"`
-	Dash  string      `json:"dash,omitempty"`
+	Color     interface{} `json:"color,omitempty"`
+	Width     float64     `json:"width,omitempty"`
+	Dash      string      `json:"dash,omitempty"`
+	Shape     string      `json:"shape,omitempty"`
+	Smoothing float64     `json:"smoothing,omitempty"`
+}
+
+// ErrorBars represents error bar properties
+type ErrorBars struct {
+	Type          string      `json:"type,omitempty"`
+	Symmetric     bool        `json:"symmetric,omitempty"`
+	Array         interface{} `json:"array,omitempty"`
+	ArrayMinus    interface{} `json:"arrayminus,omitempty"`
+	Value         float64     `json:"value,omitempty"`
+	ValueMinus    float64     `json:"valueminus,omitempty"`
+	Visible       bool        `json:"visible,omitempty"`
+	Color         string      `json:"color,omitempty"`
+	Thickness     float64     `json:"thickness,omitempty"`
+	Width         float64     `json:"width,omitempty"`
+	TraceRef      int         `json:"traceref,omitempty"`
+	TraceRefMinus int         `json:"tracerefminus,omitempty"`
+	Copy_YStyle   bool        `json:"copy_ystyle,omitempty"`
+	Copy_ZStyle   bool        `json:"copy_zstyle,omitempty"`
+}
+
+// HistogramPattern represents pattern properties
+type HistogramPattern struct {
+	Shape        string  `json:"shape,omitempty"`
+	BgColor      string  `json:"bgcolor,omitempty"`
+	Size         float64 `json:"size,omitempty"`
+	SolidetySize float64 `json:"solidity,omitempty"`
+	FillMode     string  `json:"fillmode,omitempty"`
 }
 
 // NewHistogram creates a new histogram trace
@@ -188,6 +241,21 @@ func (h *Histogram) Validate() error {
 		}
 	}
 
+	// Validate hover on
+	if h.HoverOn != "" {
+		validHoverOn := map[string]bool{
+			string(HistogramHoverOnBins): true,
+			string(HistogramHoverOnAll):  true,
+			string(HistogramHoverOnNone): true,
+		}
+		if !validHoverOn[h.HoverOn] {
+			return &validation.ValidationError{
+				Field:   "HoverOn",
+				Message: fmt.Sprintf("invalid hover on value: %s", h.HoverOn),
+			}
+		}
+	}
+
 	// Validate bins
 	if h.XBins != nil {
 		if err := h.validateBins(h.XBins, "XBins"); err != nil {
@@ -231,6 +299,18 @@ func (h *Histogram) Validate() error {
 	// Validate line properties
 	if h.Line != nil {
 		if err := h.validateLine(); err != nil {
+			return err
+		}
+	}
+
+	// Validate error bars
+	if h.ErrorX != nil {
+		if err := h.validateErrorBars(h.ErrorX, "ErrorX"); err != nil {
+			return err
+		}
+	}
+	if h.ErrorY != nil {
+		if err := h.validateErrorBars(h.ErrorY, "ErrorY"); err != nil {
 			return err
 		}
 	}
@@ -315,39 +395,119 @@ func (h *Histogram) validateLine() error {
 	return nil
 }
 
+func (h *Histogram) validateErrorBars(bars *ErrorBars, field string) error {
+	if bars.Type != "" {
+		validTypes := map[string]bool{
+			"data":    true,
+			"percent": true,
+			"sqrt":    true,
+		}
+		if !validTypes[bars.Type] {
+			return &validation.ValidationError{
+				Field:   field + ".Type",
+				Message: fmt.Sprintf("invalid error bar type: %s", bars.Type),
+			}
+		}
+	}
+
+	if bars.Symmetric && bars.Array != nil {
+		return &validation.ValidationError{
+			Field:   field + ".Symmetric",
+			Message: "symmetric error bars cannot have an array",
+		}
+	}
+
+	if bars.Array != nil && bars.ArrayMinus != nil {
+		return &validation.ValidationError{
+			Field:   field + ".Array",
+			Message: "array and arrayminus cannot be used together",
+		}
+	}
+
+	if bars.Value < 0 {
+		return &validation.ValidationError{
+			Field:   field + ".Value",
+			Message: "value must be non-negative",
+		}
+	}
+
+	if bars.ValueMinus < 0 {
+		return &validation.ValidationError{
+			Field:   field + ".ValueMinus",
+			Message: "valueminus must be non-negative",
+		}
+	}
+
+	if bars.Visible && bars.Color == "" {
+		return &validation.ValidationError{
+			Field:   field + ".Visible",
+			Message: "visible error bars must have a color",
+		}
+	}
+
+	if bars.Thickness < 0 {
+		return &validation.ValidationError{
+			Field:   field + ".Thickness",
+			Message: "thickness must be non-negative",
+		}
+	}
+
+	if bars.Width < 0 {
+		return &validation.ValidationError{
+			Field:   field + ".Width",
+			Message: "width must be non-negative",
+		}
+	}
+
+	if bars.TraceRef < 0 {
+		return &validation.ValidationError{
+			Field:   field + ".TraceRef",
+			Message: "traceref must be non-negative",
+		}
+	}
+
+	if bars.TraceRefMinus < 0 {
+		return &validation.ValidationError{
+			Field:   field + ".TraceRefMinus",
+			Message: "tracerefminus must be non-negative",
+		}
+	}
+
+	if bars.Copy_YStyle && bars.Copy_ZStyle {
+		return &validation.ValidationError{
+			Field:   field + ".Copy_YStyle",
+			Message: "copy_ystyle and copy_zstyle cannot be used together",
+		}
+	}
+
+	return nil
+}
+
 // MarshalJSON implements the json.Marshaler interface
 func (h *Histogram) MarshalJSON() ([]byte, error) {
-	m := make(map[string]interface{})
-
-	// Add base trace fields
-	baseData, err := json.Marshal(h.BaseTrace)
-	if err != nil {
-		return nil, err
-	}
-	if err := json.Unmarshal(baseData, &m); err != nil {
-		return nil, err
-	}
-
-	// Add histogram-specific fields
-	m["type"] = "histogram"
-	if h.X != nil {
-		m["x"] = h.X
-	}
-	if h.Y != nil {
-		m["y"] = h.Y
-	}
-	if h.Name != "" {
-		m["name"] = h.Name
-	}
-	if h.NBinsX != 0 {
-		m["nbinsx"] = h.NBinsX
-	}
-	if h.Opacity != 0 {
-		m["opacity"] = h.Opacity
-	}
-	if h.Marker != nil {
-		m["marker"] = h.Marker
-	}
-
-	return json.Marshal(m)
+	return json.Marshal(struct {
+		Type       string      `json:"type"`
+		X          interface{} `json:"x,omitempty"`
+		Y          interface{} `json:"y,omitempty"`
+		Name       string      `json:"name,omitempty"`
+		Opacity    float64     `json:"opacity,omitempty"`
+		Marker     *HistMarker `json:"marker,omitempty"`
+		NBinsX     int         `json:"nbinsx,omitempty"`
+		NBinsY     int         `json:"nbinsy,omitempty"`
+		XBins      *Bins       `json:"xbins,omitempty"`
+		YBins      *Bins       `json:"ybins,omitempty"`
+		ShowLegend *bool       `json:"showlegend,omitempty"`
+	}{
+		Type:       "histogram",
+		X:          h.X,
+		Y:          h.Y,
+		Name:       h.Name,
+		Opacity:    h.Opacity,
+		Marker:     h.Marker,
+		NBinsX:     h.NBinsX,
+		NBinsY:     h.NBinsY,
+		XBins:      h.XBins,
+		YBins:      h.YBins,
+		ShowLegend: h.ShowLegend,
+	})
 }
