@@ -1,4 +1,4 @@
-.PHONY: build run-scatter run-multi-scatter run-bar run-stacked-bar run-horizontal-bar run-box run-custom-box clean init
+.PHONY: build run-scatter run-multi-scatter run-bar run-stacked-bar run-horizontal-bar run-box run-custom-box run-box-statistical run-box-horizontal clean init
 
 build:
 	mkdir -p bin
@@ -9,6 +9,8 @@ build:
 	go build -o bin/horizontal_bar cmd/examples/horizontal_bar/main.go
 	go build -o bin/box cmd/examples/box/main.go
 	go build -o bin/custom_box cmd/examples/custom_box/main.go
+	go build -o bin/box_statistical cmd/examples/box_statistical/main.go
+	go build -o bin/box_horizontal cmd/examples/box_horizontal/main.go
 
 run-scatter: build
 	./bin/scatter
@@ -30,6 +32,12 @@ run-box: build
 
 run-custom-box: build
 	./bin/custom_box
+
+run-box-statistical: build
+	./bin/box_statistical
+
+run-box-horizontal: build
+	./bin/box_horizontal
 
 clean:
 	rm -rf bin/
